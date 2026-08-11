@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Castle Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #ffffff;
+            color: #333;
+        }
+
+        .header {
+            background-color: #0f172a;
+            padding: 24px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0, 0,0,0.15);
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+            padding: 16px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .gallery-item {
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            border-radius: 4px;
+            background-color: #e2e8f0;
+            aspect-ratio: 1 / 1;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .gallery-item img.loaded {
+            opacity: 1;
+        }
+
+        .gallery-item:hover {
+            opacity: 0.9;
+        }
+
+        .gallery-item .caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            color: #fff;
+            font-size: 12px;
+            padding: 24px 10px 8px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 2;
+        }
+
+        .gallery-item:hover .caption {
+            opacity: 1;
+        }
+
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.92);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .lightbox.active { display: flex; }
+
+        .lightbox img {
+            max-width: 92%;
+            max-height: 85%;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .lightbox-caption {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 14px;
+            letter-spacing: 1px;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 16px; right: 24px;
+            color: #fff;
+            font-size: 36px;
+            cursor: pointer;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            background-color: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .lightbox-nav:hover {
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        .lightbox-prev { left: 20px; }
+        .lightbox-next { right: 20px; }
+
+        .lightbox-spinner {
+            position: absolute;
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.15);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .lightbox-counter {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 20px; }
+            .header p { font-size: 12px; }
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 5px;
+                padding: 8px;
+            }
+            .lightbox-nav { width: 38px; height: 38px; font-size: 18px; }
+            .lightbox-prev { left: 8px; }
+            .lightbox-next { right: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <h1>Castle Gallery</h1>
+        <p>Total <span id="image-count">0</span> images &middot; Click to enlarge</p>
+    </header>
+
+    <div class="gallery" id="gallery"></div>
+
+    <div class="lightbox" id="lightbox">
+        <span class="lightbox-close" id="lightbox-close">&times;</span>
+        <span class="lightbox-counter" id="lightbox-counter"></span>
+        <button class="lightbox-nav lightbox-prev" id="lightbox-prev">&#8249;</button>
+        <div class="lightbox-spinner" id="lightbox-spinner" style="display:none;"></div>
+        <img id="lightbox-img" src="" alt="" style="display:none;">
+        <button class="lightbox-nav lightbox-next" id="lightbox-next">&#8250;</button>
+        <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+
+    <script>
+        const images = [
+        {
+                "thumb": "images/thumbnails/castle_001.jpg",
+                "full": "images/castle_001.jpg",
+                "caption": "Castle 001"
+        },
+        {
+                "thumb": "images/thumbnails/castle_002.jpg",
+                "full": "images/castle_002.jpg",
+                "caption": "Castle 002"
+        },
+        {
+                "thumb": "images/thumbnails/castle_003.jpg",
+                "full": "images/castle_003.jpg",
+                "caption": "Castle 003"
+        },
+        {
+                "thumb": "images/thumbnails/castle_004.jpg",
+                "full": "images/castle_004.jpg",
+                "caption": "Castle 004"
+        },
+        {
+                "thumb": "images/thumbnails/castle_005.jpg",
+                "full": "images/castle_005.jpg",
+                "caption": "Castle 005"
+        },
+        {
+                "thumb": "images/thumbnails/castle_006.jpg",
+                "full": "images/castle_006.jpg",
+                "caption": "Castle 006"
+        },
+        {
+                "thumb": "images/thumbnails/castle_007.jpg",
+                "full": "images/castle_007.avif",
+                "caption": "Castle 007"
+        },
+        {
+                "thumb": "images/thumbnails/castle_008.jpg",
+                "full": "images/castle_008.jpg",
+                "caption": "Castle 008"
+        },
+        {
+                "thumb": "images/thumbnails/castle_009.jpg",
+                "full": "images/castle_009.jpg",
+                "caption": "Castle 009"
+        },
+        {
+                "thumb": "images/thumbnails/castle_010.jpg",
+                "full": "images/castle_010.jpg",
+                "caption": "Castle 010"
+        },
+        {
+                "thumb": "images/thumbnails/castle_011.jpg",
+                "full": "images/castle_011.jpg",
+                "caption": "Castle 011"
+        },
+        {
+                "thumb": "images/thumbnails/castle_012.jpg",
+                "full": "images/castle_012.jpg",
+                "caption": "Castle 012"
+        },
+        {
+                "thumb": "images/thumbnails/castle_013.jpg",
+                "full": "images/castle_013.avif",
+                "caption": "Castle 013"
+        },
+        {
+                "thumb": "images/thumbnails/castle_014.jpg",
+                "full": "images/castle_014.jpg",
+                "caption": "Castle 014"
+        },
+        {
+                "thumb": "images/thumbnails/castle_015.jpg",
+                "full": "images/castle_015.avif",
+                "caption": "Castle 015"
+        },
+        {
+                "thumb": "images/thumbnails/castle_016.jpg",
+                "full": "images/castle_016.webp",
+                "caption": "Castle 016"
+        },
+        {
+                "thumb": "images/thumbnails/castle_017.jpg",
+                "full": "images/castle_017.jpg",
+                "caption": "Castle 017"
+        },
+        {
+                "thumb": "images/thumbnails/castle_018.jpg",
+                "full": "images/castle_018.jpg",
+                "caption": "Castle 018"
+        },
+        {
+                "thumb": "images/thumbnails/castle_019.jpg",
+                "full": "images/castle_019.jpg",
+                "caption": "Castle 019"
+        },
+        {
+                "thumb": "images/thumbnails/castle_020.jpg",
+                "full": "images/castle_020.jpg",
+                "caption": "Castle 020"
+        },
+        {
+                "thumb": "images/thumbnails/castle_021.jpg",
+                "full": "images/castle_021.jpg",
+                "caption": "Castle 021"
+        },
+        {
+                "thumb": "images/thumbnails/castle_022.jpg",
+                "full": "images/castle_022.avif",
+                "caption": "Castle 022"
+        },
+        {
+                "thumb": "images/thumbnails/castle_023.jpg",
+                "full": "images/castle_023.jpg",
+                "caption": "Castle 023"
+        },
+        {
+                "thumb": "images/thumbnails/castle_024.jpg",
+                "full": "images/castle_024.jpg",
+                "caption": "Castle 024"
+        },
+        {
+                "thumb": "images/thumbnails/castle_025.jpg",
+                "full": "images/castle_025.avif",
+                "caption": "Castle 025"
+        },
+        {
+                "thumb": "images/thumbnails/castle_026.jpg",
+                "full": "images/castle_026.jpg",
+                "caption": "Castle 026"
+        },
+        {
+                "thumb": "images/thumbnails/castle_027.jpg",
+                "full": "images/castle_027.jpg",
+                "caption": "Castle 027"
+        },
+        {
+                "thumb": "images/thumbnails/castle_028.jpg",
+                "full": "images/castle_028.jpg",
+                "caption": "Castle 028"
+        },
+        {
+                "thumb": "images/thumbnails/castle_029.jpg",
+                "full": "images/castle_029.jpg",
+                "caption": "Castle 029"
+        },
+        {
+                "thumb": "images/thumbnails/castle_030.jpg",
+                "full": "images/castle_030.webp",
+                "caption": "Castle 030"
+        },
+        {
+                "thumb": "images/thumbnails/castle_031.jpg",
+                "full": "images/castle_031.jpg",
+                "caption": "Castle 031"
+        },
+        {
+                "thumb": "images/thumbnails/castle_032.jpg",
+                "full": "images/castle_032.jpg",
+                "caption": "Castle 032"
+        },
+        {
+                "thumb": "images/thumbnails/castle_033.jpg",
+                "full": "images/castle_033.webp",
+                "caption": "Castle 033"
+        },
+        {
+                "thumb": "images/thumbnails/castle_034.jpg",
+                "full": "images/castle_034.webp",
+                "caption": "Castle 034"
+        },
+        {
+                "thumb": "images/thumbnails/castle_035.jpg",
+                "full": "images/castle_035.avif",
+                "caption": "Castle 035"
+        },
+        {
+                "thumb": "images/thumbnails/castle_036.jpg",
+                "full": "images/castle_036.jpg",
+                "caption": "Castle 036"
+        },
+        {
+                "thumb": "images/thumbnails/castle_037.jpg",
+                "full": "images/castle_037.webp",
+                "caption": "Castle 037"
+        },
+        {
+                "thumb": "images/thumbnails/castle_038.jpg",
+                "full": "images/castle_038.jpg",
+                "caption": "Castle 038"
+        },
+        {
+                "thumb": "images/thumbnails/castle_039.jpg",
+                "full": "images/castle_039.jpg",
+                "caption": "Castle 039"
+        },
+        {
+                "thumb": "images/thumbnails/castle_040.jpg",
+                "full": "images/castle_040.jpg",
+                "caption": "Castle 040"
+        },
+        {
+                "thumb": "images/thumbnails/castle_041.jpg",
+                "full": "images/castle_041.webp",
+                "caption": "Castle 041"
+        },
+        {
+                "thumb": "images/thumbnails/castle_042.jpg",
+                "full": "images/castle_042.jpg",
+                "caption": "Castle 042"
+        },
+        {
+                "thumb": "images/thumbnails/castle_043.jpg",
+                "full": "images/castle_043.jpg",
+                "caption": "Castle 043"
+        },
+        {
+                "thumb": "images/thumbnails/castle_044.jpg",
+                "full": "images/castle_044.png",
+                "caption": "Castle 044"
+        },
+        {
+                "thumb": "images/thumbnails/castle_045.jpg",
+                "full": "images/castle_045.webp",
+                "caption": "Castle 045"
+        },
+        {
+                "thumb": "images/thumbnails/castle_046.jpg",
+                "full": "images/castle_046.avif",
+                "caption": "Castle 046"
+        },
+        {
+                "thumb": "images/thumbnails/castle_047.jpg",
+                "full": "images/castle_047.jpg",
+                "caption": "Castle 047"
+        },
+        {
+                "thumb": "images/thumbnails/castle_048.jpg",
+                "full": "images/castle_048.webp",
+                "caption": "Castle 048"
+        },
+        {
+                "thumb": "images/thumbnails/castle_049.jpg",
+                "full": "images/castle_049.jpg",
+                "caption": "Castle 049"
+        },
+        {
+                "thumb": "images/thumbnails/castle_050.jpg",
+                "full": "images/castle_050.webp",
+                "caption": "Castle 050"
+        },
+        {
+                "thumb": "images/thumbnails/castle_051.jpg",
+                "full": "images/castle_051.jpg",
+                "caption": "Castle 051"
+        },
+        {
+                "thumb": "images/thumbnails/castle_052.jpg",
+                "full": "images/castle_052.avif",
+                "caption": "Castle 052"
+        },
+        {
+                "thumb": "images/thumbnails/castle_053.jpg",
+                "full": "images/castle_053.jpg",
+                "caption": "Castle 053"
+        },
+        {
+                "thumb": "images/thumbnails/castle_054.jpg",
+                "full": "images/castle_054.avif",
+                "caption": "Castle 054"
+        },
+        {
+                "thumb": "images/thumbnails/castle_055.jpg",
+                "full": "images/castle_055.avif",
+                "caption": "Castle 055"
+        },
+        {
+                "thumb": "images/thumbnails/castle_056.jpg",
+                "full": "images/castle_056.jpg",
+                "caption": "Castle 056"
+        },
+        {
+                "thumb": "images/thumbnails/castle_057.jpg",
+                "full": "images/castle_057.avif",
+                "caption": "Castle 057"
+        },
+        {
+                "thumb": "images/thumbnails/castle_058.jpg",
+                "full": "images/castle_058.jpg",
+                "caption": "Castle 058"
+        },
+        {
+                "thumb": "images/thumbnails/castle_059.jpg",
+                "full": "images/castle_059.jpg",
+                "caption": "Castle 059"
+        },
+        {
+                "thumb": "images/thumbnails/castle_060.jpg",
+                "full": "images/castle_060.jpg",
+                "caption": "Castle 060"
+        },
+        {
+                "thumb": "images/thumbnails/castle_061.jpg",
+                "full": "images/castle_061.jpg",
+                "caption": "Castle 061"
+        },
+        {
+                "thumb": "images/thumbnails/castle_062.jpg",
+                "full": "images/castle_062.jpg",
+                "caption": "Castle 062"
+        },
+        {
+                "thumb": "images/thumbnails/castle_063.jpg",
+                "full": "images/castle_063.jpg",
+                "caption": "Castle 063"
+        },
+        {
+                "thumb": "images/thumbnails/castle_064.jpg",
+                "full": "images/castle_064.jpg",
+                "caption": "Castle 064"
+        },
+        {
+                "thumb": "images/thumbnails/castle_065.jpg",
+                "full": "images/castle_065.avif",
+                "caption": "Castle 065"
+        },
+        {
+                "thumb": "images/thumbnails/castle_066.jpg",
+                "full": "images/castle_066.jpg",
+                "caption": "Castle 066"
+        },
+        {
+                "thumb": "images/thumbnails/castle_067.jpg",
+                "full": "images/castle_067.jpg",
+                "caption": "Castle 067"
+        },
+        {
+                "thumb": "images/thumbnails/castle_068.jpg",
+                "full": "images/castle_068.avif",
+                "caption": "Castle 068"
+        },
+        {
+                "thumb": "images/thumbnails/castle_069.jpg",
+                "full": "images/castle_069.jpg",
+                "caption": "Castle 069"
+        },
+        {
+                "thumb": "images/thumbnails/castle_070.jpg",
+                "full": "images/castle_070.jpg",
+                "caption": "Castle 070"
+        },
+        {
+                "thumb": "images/thumbnails/castle_071.jpg",
+                "full": "images/castle_071.jpg",
+                "caption": "Castle 071"
+        },
+        {
+                "thumb": "images/thumbnails/castle_072.jpg",
+                "full": "images/castle_072.jpg",
+                "caption": "Castle 072"
+        },
+        {
+                "thumb": "images/thumbnails/castle_073.jpg",
+                "full": "images/castle_073.jpg",
+                "caption": "Castle 073"
+        },
+        {
+                "thumb": "images/thumbnails/castle_074.jpg",
+                "full": "images/castle_074.jpg",
+                "caption": "Castle 074"
+        },
+        {
+                "thumb": "images/thumbnails/castle_075.jpg",
+                "full": "images/castle_075.jpg",
+                "caption": "Castle 075"
+        },
+        {
+                "thumb": "images/thumbnails/castle_076.jpg",
+                "full": "images/castle_076.jpg",
+                "caption": "Castle 076"
+        },
+        {
+                "thumb": "images/thumbnails/castle_077.jpg",
+                "full": "images/castle_077.avif",
+                "caption": "Castle 077"
+        },
+        {
+                "thumb": "images/thumbnails/castle_078.jpg",
+                "full": "images/castle_078.jpg",
+                "caption": "Castle 078"
+        },
+        {
+                "thumb": "images/thumbnails/castle_079.jpg",
+                "full": "images/castle_079.webp",
+                "caption": "Castle 079"
+        },
+        {
+                "thumb": "images/thumbnails/castle_080.jpg",
+                "full": "images/castle_080.jpg",
+                "caption": "Castle 080"
+        },
+        {
+                "thumb": "images/thumbnails/castle_081.jpg",
+                "full": "images/castle_081.jpg",
+                "caption": "Castle 081"
+        },
+        {
+                "thumb": "images/thumbnails/castle_082.jpg",
+                "full": "images/castle_082.jpg",
+                "caption": "Castle 082"
+        },
+        {
+                "thumb": "images/thumbnails/castle_083.jpg",
+                "full": "images/castle_083.webp",
+                "caption": "Castle 083"
+        },
+        {
+                "thumb": "images/thumbnails/castle_084.jpg",
+                "full": "images/castle_084.jpg",
+                "caption": "Castle 084"
+        },
+        {
+                "thumb": "images/thumbnails/castle_085.jpg",
+                "full": "images/castle_085.avif",
+                "caption": "Castle 085"
+        },
+        {
+                "thumb": "images/thumbnails/castle_086.jpg",
+                "full": "images/castle_086.jpg",
+                "caption": "Castle 086"
+        },
+        {
+                "thumb": "images/thumbnails/castle_087.jpg",
+                "full": "images/castle_087.jpg",
+                "caption": "Castle 087"
+        },
+        {
+                "thumb": "images/thumbnails/castle_088.jpg",
+                "full": "images/castle_088.jpg",
+                "caption": "Castle 088"
+        },
+        {
+                "thumb": "images/thumbnails/castle_089.jpg",
+                "full": "images/castle_089.avif",
+                "caption": "Castle 089"
+        },
+        {
+                "thumb": "images/thumbnails/castle_090.jpg",
+                "full": "images/castle_090.jpg",
+                "caption": "Castle 090"
+        },
+        {
+                "thumb": "images/thumbnails/castle_091.jpg",
+                "full": "images/castle_091.jpg",
+                "caption": "Castle 091"
+        },
+        {
+                "thumb": "images/thumbnails/castle_092.jpg",
+                "full": "images/castle_092.webp",
+                "caption": "Castle 092"
+        },
+        {
+                "thumb": "images/thumbnails/castle_093.jpg",
+                "full": "images/castle_093.jpg",
+                "caption": "Castle 093"
+        },
+        {
+                "thumb": "images/thumbnails/castle_094.jpg",
+                "full": "images/castle_094.webp",
+                "caption": "Castle 094"
+        },
+        {
+                "thumb": "images/thumbnails/castle_095.jpg",
+                "full": "images/castle_095.jpg",
+                "caption": "Castle 095"
+        },
+        {
+                "thumb": "images/thumbnails/castle_096.jpg",
+                "full": "images/castle_096.webp",
+                "caption": "Castle 096"
+        },
+        {
+                "thumb": "images/thumbnails/castle_097.jpg",
+                "full": "images/castle_097.avif",
+                "caption": "Castle 097"
+        },
+        {
+                "thumb": "images/thumbnails/castle_098.jpg",
+                "full": "images/castle_098.jpg",
+                "caption": "Castle 098"
+        },
+        {
+                "thumb": "images/thumbnails/castle_099.jpg",
+                "full": "images/castle_099.avif",
+                "caption": "Castle 099"
+        },
+        {
+                "thumb": "images/thumbnails/castle_100.jpg",
+                "full": "images/castle_100.webp",
+                "caption": "Castle 100"
+        },
+        {
+                "thumb": "images/thumbnails/castle_101.jpg",
+                "full": "images/castle_101.avif",
+                "caption": "Castle 101"
+        },
+        {
+                "thumb": "images/thumbnails/castle_102.jpg",
+                "full": "images/castle_102.jpg",
+                "caption": "Castle 102"
+        },
+        {
+                "thumb": "images/thumbnails/castle_103.jpg",
+                "full": "images/castle_103.avif",
+                "caption": "Castle 103"
+        },
+        {
+                "thumb": "images/thumbnails/castle_104.jpg",
+                "full": "images/castle_104.jpg",
+                "caption": "Castle 104"
+        },
+        {
+                "thumb": "images/thumbnails/castle_105.jpg",
+                "full": "images/castle_105.jpg",
+                "caption": "Castle 105"
+        },
+        {
+                "thumb": "images/thumbnails/castle_106.jpg",
+                "full": "images/castle_106.jpg",
+                "caption": "Castle 106"
+        },
+        {
+                "thumb": "images/thumbnails/castle_107.jpg",
+                "full": "images/castle_107.jpg",
+                "caption": "Castle 107"
+        },
+        {
+                "thumb": "images/thumbnails/castle_108.jpg",
+                "full": "images/castle_108.jpg",
+                "caption": "Castle 108"
+        },
+        {
+                "thumb": "images/thumbnails/castle_109.jpg",
+                "full": "images/castle_109.avif",
+                "caption": "Castle 109"
+        },
+        {
+                "thumb": "images/thumbnails/castle_110.jpg",
+                "full": "images/castle_110.jpg",
+                "caption": "Castle 110"
+        },
+        {
+                "thumb": "images/thumbnails/castle_111.jpg",
+                "full": "images/castle_111.avif",
+                "caption": "Castle 111"
+        },
+        {
+                "thumb": "images/thumbnails/castle_112.jpg",
+                "full": "images/castle_112.webp",
+                "caption": "Castle 112"
+        },
+        {
+                "thumb": "images/thumbnails/castle_113.jpg",
+                "full": "images/castle_113.webp",
+                "caption": "Castle 113"
+        },
+        {
+                "thumb": "images/thumbnails/castle_114.jpg",
+                "full": "images/castle_114.avif",
+                "caption": "Castle 114"
+        },
+        {
+                "thumb": "images/thumbnails/castle_115.jpg",
+                "full": "images/castle_115.jpg",
+                "caption": "Castle 115"
+        },
+        {
+                "thumb": "images/thumbnails/castle_116.jpg",
+                "full": "images/castle_116.webp",
+                "caption": "Castle 116"
+        },
+        {
+                "thumb": "images/thumbnails/castle_117.jpg",
+                "full": "images/castle_117.jpg",
+                "caption": "Castle 117"
+        },
+        {
+                "thumb": "images/thumbnails/castle_118.jpg",
+                "full": "images/castle_118.avif",
+                "caption": "Castle 118"
+        },
+        {
+                "thumb": "images/thumbnails/castle_119.jpg",
+                "full": "images/castle_119.jpg",
+                "caption": "Castle 119"
+        },
+        {
+                "thumb": "images/thumbnails/castle_120.jpg",
+                "full": "images/castle_120.avif",
+                "caption": "Castle 120"
+        },
+        {
+                "thumb": "images/thumbnails/castle_121.jpg",
+                "full": "images/castle_121.jpg",
+                "caption": "Castle 121"
+        },
+        {
+                "thumb": "images/thumbnails/castle_122.jpg",
+                "full": "images/castle_122.jpg",
+                "caption": "Castle 122"
+        },
+        {
+                "thumb": "images/thumbnails/castle_123.jpg",
+                "full": "images/castle_123.jpg",
+                "caption": "Castle 123"
+        },
+        {
+                "thumb": "images/thumbnails/castle_124.jpg",
+                "full": "images/castle_124.avif",
+                "caption": "Castle 124"
+        },
+        {
+                "thumb": "images/thumbnails/castle_125.jpg",
+                "full": "images/castle_125.jpg",
+                "caption": "Castle 125"
+        },
+        {
+                "thumb": "images/thumbnails/castle_126.jpg",
+                "full": "images/castle_126.webp",
+                "caption": "Castle 126"
+        },
+        {
+                "thumb": "images/thumbnails/castle_127.jpg",
+                "full": "images/castle_127.jpg",
+                "caption": "Castle 127"
+        },
+        {
+                "thumb": "images/thumbnails/castle_128.jpg",
+                "full": "images/castle_128.jpg",
+                "caption": "Castle 128"
+        },
+        {
+                "thumb": "images/thumbnails/castle_129.jpg",
+                "full": "images/castle_129.avif",
+                "caption": "Castle 129"
+        },
+        {
+                "thumb": "images/thumbnails/castle_130.jpg",
+                "full": "images/castle_130.jpg",
+                "caption": "Castle 130"
+        },
+        {
+                "thumb": "images/thumbnails/castle_131.jpg",
+                "full": "images/castle_131.avif",
+                "caption": "Castle 131"
+        },
+        {
+                "thumb": "images/thumbnails/castle_132.jpg",
+                "full": "images/castle_132.jpg",
+                "caption": "Castle 132"
+        },
+        {
+                "thumb": "images/thumbnails/castle_133.jpg",
+                "full": "images/castle_133.jpg",
+                "caption": "Castle 133"
+        },
+        {
+                "thumb": "images/thumbnails/castle_134.jpg",
+                "full": "images/castle_134.webp",
+                "caption": "Castle 134"
+        },
+        {
+                "thumb": "images/thumbnails/castle_135.jpg",
+                "full": "images/castle_135.jpg",
+                "caption": "Castle 135"
+        },
+        {
+                "thumb": "images/thumbnails/castle_136.jpg",
+                "full": "images/castle_136.jpg",
+                "caption": "Castle 136"
+        },
+        {
+                "thumb": "images/thumbnails/castle_137.jpg",
+                "full": "images/castle_137.jpg",
+                "caption": "Castle 137"
+        },
+        {
+                "thumb": "images/thumbnails/castle_138.jpg",
+                "full": "images/castle_138.webp",
+                "caption": "Castle 138"
+        },
+        {
+                "thumb": "images/thumbnails/castle_139.jpg",
+                "full": "images/castle_139.webp",
+                "caption": "Castle 139"
+        },
+        {
+                "thumb": "images/thumbnails/castle_140.jpg",
+                "full": "images/castle_140.jpg",
+                "caption": "Castle 140"
+        },
+        {
+                "thumb": "images/thumbnails/castle_141.jpg",
+                "full": "images/castle_141.avif",
+                "caption": "Castle 141"
+        },
+        {
+                "thumb": "images/thumbnails/castle_142.jpg",
+                "full": "images/castle_142.jpg",
+                "caption": "Castle 142"
+        },
+        {
+                "thumb": "images/thumbnails/castle_143.jpg",
+                "full": "images/castle_143.jpg",
+                "caption": "Castle 143"
+        },
+        {
+                "thumb": "images/thumbnails/castle_144.jpg",
+                "full": "images/castle_144.jpg",
+                "caption": "Castle 144"
+        },
+        {
+                "thumb": "images/thumbnails/castle_145.jpg",
+                "full": "images/castle_145.avif",
+                "caption": "Castle 145"
+        },
+        {
+                "thumb": "images/thumbnails/castle_146.jpg",
+                "full": "images/castle_146.jpg",
+                "caption": "Castle 146"
+        },
+        {
+                "thumb": "images/thumbnails/castle_147.jpg",
+                "full": "images/castle_147.jpg",
+                "caption": "Castle 147"
+        },
+        {
+                "thumb": "images/thumbnails/castle_148.jpg",
+                "full": "images/castle_148.jpg",
+                "caption": "Castle 148"
+        },
+        {
+                "thumb": "images/thumbnails/castle_149.jpg",
+                "full": "images/castle_149.avif",
+                "caption": "Castle 149"
+        },
+        {
+                "thumb": "images/thumbnails/castle_150.jpg",
+                "full": "images/castle_150.jpg",
+                "caption": "Castle 150"
+        },
+        {
+                "thumb": "images/thumbnails/castle_151.jpg",
+                "full": "images/castle_151.jpg",
+                "caption": "Castle 151"
+        }
+];
+
+        const gallery = document.getElementById("gallery");
+        const lightbox = document.getElementById("lightbox");
+        const lightboxImg = document.getElementById("lightbox-img");
+        const lightboxSpinner = document.getElementById("lightbox-spinner");
+        const lightboxCaption = document.getElementById("lightbox-caption");
+        const lightboxClose = document.getElementById("lightbox-close");
+        const lightboxPrev = document.getElementById("lightbox-prev");
+        const lightboxNext = document.getElementById("lightbox-next");
+        const lightboxCounter = document.getElementById("lightbox-counter");
+
+        let currentIndex = 0;
+
+        // Render gallery items with data-src (no loading yet)
+        images.forEach((item, index) => {
+            const div = document.createElement("div");
+            div.className = "gallery-item";
+            div.innerHTML = `
+                <img data-src="${item.thumb}" alt="${item.caption}">
+                <div class="caption">${item.caption}</div>
+            `;
+            div.addEventListener("click", () => openLightbox(index));
+            gallery.appendChild(div);
+        });
+
+        document.getElementById("image-count").textContent = images.length;
+
+        // Lazy load thumbnails with IntersectionObserver
+        const imgObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    const src = img.getAttribute("data-src");
+                    if (src) {
+                        img.onload = () => img.classList.add("loaded");
+                        img.src = src;
+                        img.removeAttribute("data-src");
+                    }
+                    imgObserver.unobserve(img);
+                }
+            });
+        }, {
+            rootMargin: "300px 0px",
+            threshold: 0.01
+        });
+
+        document.querySelectorAll(".gallery-item img").forEach(img => imgObserver.observe(img));
+
+        function openLightbox(index) {
+            currentIndex = index;
+            lightbox.classList.add("active");
+            updateLightbox();
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove("active");
+            lightboxImg.src = "";
+        }
+
+        function updateLightbox() {
+            const item = images[currentIndex];
+            lightboxSpinner.style.display = "block";
+            lightboxImg.style.display = "none";
+            lightboxCaption.textContent = item.caption;
+            lightboxCounter.textContent = `${currentIndex + 1} / ${images.length}`;
+
+            const temp = new Image();
+            temp.onload = () => {
+                lightboxImg.src = item.full;
+                lightboxImg.alt = item.caption;
+                lightboxSpinner.style.display = "none";
+                lightboxImg.style.display = "block";
+            };
+            temp.src = item.full;
+        }
+
+        function showPrev() {
+            currentIndex = (currentIndex - 1 + images.length) % images.length;
+            updateLightbox();
+        }
+
+        function showNext() {
+            currentIndex = (currentIndex + 1) % images.length;
+            updateLightbox();
+        }
+
+        lightboxClose.addEventListener("click", closeLightbox);
+        lightboxPrev.addEventListener("click", (e) => { e.stopPropagation(); showPrev(); });
+        lightboxNext.addEventListener("click", (e) => { e.stopPropagation(); showNext(); });
+
+        lightbox.addEventListener("click", (e) => {
+            if (e.target === lightbox) closeLightbox();
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (!lightbox.classList.contains("active")) return;
+            if (e.key === "Escape") closeLightbox();
+            if (e.key === "ArrowLeft") showPrev();
+            if (e.key === "ArrowRight") showNext();
+        });
+
+        let touchStartX = 0;
+        lightbox.addEventListener("touchstart", (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+        lightbox.addEventListener("touchend", (e) => {
+            const diff = touchStartX - e.changedTouches[0].screenX;
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) showNext(); else showPrev();
+            }
+        });
+    </script>
+
+</body>
+</html>
